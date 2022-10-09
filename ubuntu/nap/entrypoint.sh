@@ -9,7 +9,9 @@ agent_log_file="/var/log/nginx-controller/agent.log"
 nginx_status_conf="/etc/nginx/conf.d/stub_status.conf"
 
 api_key=""
-instance_name="$(hostname -f)"
+instance_name="$(uuidgen)"
+env_u=""
+env_p=""
 controller_api_url=""
 location=""
 
@@ -22,6 +24,45 @@ handle_term()
     kill -TERM "${bd_agent_pid}" 2>/dev/null
     echo "stopping controller-agent ..."
     kill -TERM "${agent_pid}" 2>/dev/null
+    dataraw=\{\"credentials\":\{\"type\":\"BASIC\",\"username\":\"$env_u\",\"password\":\"$env_p\",\"providerName\":\"local\"\}\}
+      curl 'https://nginxcontroller.westeurope.cloudapp.azure.com/api/v1/platform/login' \
+    -H 'Connection: keep-alive' \
+    -c '/var/tmp/cookie.txt' \
+    -H 'Pragma: no-cache' \
+    -H 'Cache-Control: no-cache' \
+    -H 'sec-ch-ua: " Not;A Brand";v="99", "Google Chrome";v="97", "Chromium";v="97"' \
+    -H 'sec-ch-ua-mobile: ?0' \
+    -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.99 Safari/537.36' \
+    -H 'Content-Type: application/json' \
+    -H 'Origin: https://nginxcontroller.westeurope.cloudapp.azure.com' \
+    -H 'Sec-Fetch-Site: same-origin' \
+    -H 'Sec-Fetch-Mode: cors' \
+    -H 'Sec-Fetch-Dest: empty' \
+    -H 'Referer: https://nginxcontroller.westeurope.cloudapp.azure.com/login' \
+    -H 'Accept-Language: en-US,en;q=0.9' \
+    --data-raw "$dataraw" \
+    --compressed \
+    --insecure
+
+    # delete instance
+curl "https://nginxcontroller.westeurope.cloudapp.azure.com/api/v1/infrastructure/locations/unspecified/instances/$instance_name" \
+  -X 'DELETE' \
+  -H 'Connection: keep-alive' \
+  -b /var/tmp/cookie.txt \
+  -H 'Pragma: no-cache' \
+  -H 'Cache-Control: no-cache' \
+  -H 'sec-ch-ua: " Not;A Brand";v="99", "Google Chrome";v="97", "Chromium";v="97"' \
+  -H 'Accept: application/json, text/plain, */*' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.99 Safari/537.36' \
+  -H 'Origin: https://nginxcontroller.westeurope.cloudapp.azure.com' \
+  -H 'Sec-Fetch-Site: same-origin' \
+  -H 'Sec-Fetch-Mode: cors' \
+  -H 'Sec-Fetch-Dest: empty' \
+  -H 'Referer: https://nginxcontroller.westeurope.cloudapp.azure.com/infrastructure/instances' \
+  -H 'Accept-Language: en-US,en;q=0.9' \
+  --compressed \
+  --insecure
     echo "stopping nginx ..."
     kill -TERM "${nginx_pid}" 2>/dev/null
 }
@@ -58,6 +99,12 @@ test -n "${ENV_CONTROLLER_INSTANCE_NAME}" && \
 
 test -n "${ENV_CONTROLLER_API_URL}" && \
     controller_api_url=${ENV_CONTROLLER_API_URL}
+
+test -n "${ENV_CONTROLLER_USER}" && \
+    env_u=${ENV_CONTROLLER_USER}
+
+test -n "${ENV_CONTROLLER_PASSWORD}" && \
+    env_p=${ENV_CONTROLLER_PASSWORD}
 
 test -n "${ENV_CONTROLLER_LOCATION}" && \
     location=${ENV_CONTROLLER_LOCATION}

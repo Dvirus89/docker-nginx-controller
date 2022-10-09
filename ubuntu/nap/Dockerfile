@@ -6,7 +6,7 @@ FROM ubuntu:18.04 as nginx-installer
 
 LABEL maintainer="NGINX Controller Engineering"
 
-# NGXIN Plus release e.g 25
+# NGXIN Plus release e.g 27
 ARG NGINX_PLUS_VERSION=25
 
 COPY nginx-plus-api.conf /etc/nginx/conf.d/
@@ -33,6 +33,9 @@ RUN --mount=type=secret,id=nginx-crt,dst=/etc/ssl/nginx/nginx-repo.crt,mode=0644
   lsb-release \
   binutils \
   net-tools \
+  uuid-runtime \
+  wget \
+  tcpdump \
   && apt-get upgrade -y \
   && \
   found=''; \
@@ -50,8 +53,11 @@ RUN --mount=type=secret,id=nginx-crt,dst=/etc/ssl/nginx/nginx-repo.crt,mode=0644
   && echo "Acquire::https::pkgs.nginx.com::Verify-Host \"true\";" >> /etc/apt/apt.conf.d/90pkgs-nginx \
   && echo "Acquire::https::pkgs.nginx.com::SslCert     \"/etc/ssl/nginx/nginx-repo.crt\";" >> /etc/apt/apt.conf.d/90pkgs-nginx \
   && echo "Acquire::https::pkgs.nginx.com::SslKey      \"/etc/ssl/nginx/nginx-repo.key\";" >> /etc/apt/apt.conf.d/90pkgs-nginx \
+  && wget https://cs.nginx.com/static/keys/nginx_signing.key && apt-key add nginx_signing.key \
+  && wget https://cs.nginx.com/static/keys/app-protect-security-updates.key && apt-key add app-protect-security-updates.key \
   && printf "deb https://pkgs.nginx.com/plus/ubuntu $(lsb_release -cs) nginx-plus\n" > /etc/apt/sources.list.d/nginx-plus.list \
   && printf "deb https://pkgs.nginx.com/app-protect/ubuntu $(lsb_release -cs) nginx-plus\n" > /etc/apt/sources.list.d/nginx-app-protect.list \
+  && printf "deb https://pkgs.nginx.com/app-protect-security-updates/ubuntu `lsb_release -cs` nginx-plus\n" >> /etc/apt/sources.list.d/app-protect-security-updates.list \
   # NGINX Javascript module needed for APIM
   && apt-get update && apt-get install -y nginx-plus=${NGINX_PLUS_VERSION}* nginx-plus-module-njs=${NGINX_PLUS_VERSION}*
 
@@ -66,7 +72,7 @@ RUN --mount=type=secret,id=nginx-crt,dst=/etc/ssl/nginx/nginx-repo.crt,mode=0644
   curl -k -sS -L ${CONTROLLER_URL} > install.sh \
   && sed -i 's/^assume_yes=""/assume_yes="-y"/' install.sh \
   && sed -i 's,-n "${NGINX_GPGKEY}",true,' install.sh \
-  && sh ./install.sh -y
+  && sh ./install.sh -i "$(uuidgen)" -y
 
 
 FROM agent-installer as nap-installer
